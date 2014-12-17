@@ -131,6 +131,34 @@ try{
     }
   }
 
+  // get cookie
+  function getCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+      var c = ca[i];
+      while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  }
+
+  // set cookie
+  function setCookie(name, value, expiredays, domain) {
+    var seg1 = [name, "=", encodeURIComponent(value), ";"].join('');
+
+    var seg2 = "";
+    if (expiredays) {
+      var date = new Date();
+      date.setTime(date.getTime() + (expiredays * 24 * 60 * 60 * 1000));
+      seg2 = ["expires=", date.toGMTString(), ";"].join('');
+    }
+
+    var seg3 = domain ? ["path=", domain].join('') : "path=/;";
+
+    document.cookie = [seg1, seg2, seg3].join('');
+  }
+
   /*
    * Again, ugly workaround....same problem as flash.
    */
@@ -630,78 +658,80 @@ try{
         }
       } catch (e) { }
     };
- 
-    this.evercookie_indexdb_storage = function(name, value) {
-    try {
-    if (!('indexedDB' in window)) {
 
-        indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-        IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
-        IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
-    }
+    this.evercookie_indexdb_storage = function (name, value) {
+      try {
+        var indexedDB, IDBTransaction, IDBKeyRange;
 
-    if (indexedDB) {
-        var ver = 1;
-        //FF incognito mode restricts indexedb access
-        var request = indexedDB.open("idb_evercookie", ver);
+        if (!('indexedDB' in window)) {
 
-
-        request.onerror = function(e) { ;
+          indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+          IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
+          IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
         }
 
-        request.onupgradeneeded = function(event) {
+        if (indexedDB) {
+          var ver = 1;
+          //FF incognito mode restricts indexedb access
+          var request = indexedDB.open("idb_evercookie", ver);
+
+          request.onerror = function (e) {
+          };
+
+          request.onupgradeneeded = function (event) {
             var db = event.target.result;
 
             var store = db.createObjectStore("evercookie", {
-                keyPath: "name",
-                unique: false
-            })
+              keyPath: "name",
+              unique: false
+            });
 
-        }
+          };
 
-        if (value !== undefined) {
+          if (value !== undefined) {
 
-
-            request.onsuccess = function(event) {
-                var idb = event.target.result;
-                if (idb.objectStoreNames.contains("evercookie")) {
-                    var tx = idb.transaction(["evercookie"], "readwrite");
-                    var objst = tx.objectStore("evercookie");
-                    var qr = objst.put({
-                        "name": name,
-                        "value": value
-                    })
-                } idb.close();
+            request.onsuccess = function (event) {
+              var idb = event.target.result;
+              if (idb.objectStoreNames.contains("evercookie")) {
+                var tx = idb.transaction(["evercookie"], "readwrite");
+                var objst = tx.objectStore("evercookie");
+                var qr = objst.put({
+                  "name": name,
+                  "value": value
+                })
+              }
+              idb.close();
             }
 
-        } else {
+          } else {
 
-            request.onsuccess = function(event) {
+            request.onsuccess = function (event) {
 
-                var idb = event.target.result;
+              var idb = event.target.result;
 
-                if (!idb.objectStoreNames.contains("evercookie")) {
+              if (!idb.objectStoreNames.contains("evercookie")) {
 
-                    self._ec.idbData = undefined;
-                } else {
-                    var tx = idb.transaction(["evercookie"]);
-                    var objst = tx.objectStore("evercookie");
-                    var qr = objst.get(name);
+                self._ec.idbData = undefined;
+              } else {
+                var tx = idb.transaction(["evercookie"]);
+                var objst = tx.objectStore("evercookie");
+                var qr = objst.get(name);
 
-                    qr.onsuccess = function(event) {
-                        if (qr.result === undefined) {
-                            self._ec.idbData = undefined
-                        } else {
-                            self._ec.idbData = qr.result.value;
-                        }
-                    }
+                qr.onsuccess = function (event) {
+                  if (qr.result === undefined) {
+                    self._ec.idbData = undefined
+                  } else {
+                    self._ec.idbData = qr.result.value;
+                  }
                 }
-           idb.close();
+              }
+              idb.close();
             }
+          }
         }
-    }
- } catch (e) {}
-};
+      } catch (e) {
+      }
+    };
 
     this.evercookie_session_storage = function (name, value) {
       try {
@@ -980,10 +1010,10 @@ try{
     this.evercookie_cookie = function (name, value) {
       if (value !== undefined) {
         // expire the cookie first
-        document.cookie = name + "=; expires=Mon, 20 Sep 2010 00:00:00 UTC; path=/; domain=" + _ec_domain;
-        document.cookie = name + "=" + value + "; expires=Tue, 31 Dec 2030 00:00:00 UTC; path=/; domain=" + _ec_domain;
+        setCookie(name, value, -1);
+        setCookie(name, value, 10*365, _ec_domain);
       } else {
-        return this.getFromStr(name, document.cookie);
+        return getCookie(name);
       }
     };
 
